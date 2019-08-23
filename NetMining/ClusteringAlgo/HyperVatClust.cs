@@ -12,7 +12,7 @@ namespace NetMining.ClusteringAlgo
     /// <summary>
     /// This class implements a clustering algorithm that uses the resilience measure called integrity.
     /// </summary>
-    public class HVATClust : IClusteringAlgorithm
+    public class HyperVATClust : IClusteringAlgorithm
     {
         readonly AbstractDataset _data;
         private readonly int _minK;
@@ -24,21 +24,22 @@ namespace NetMining.ClusteringAlgo
         private readonly IPointGraphGenerator _graphGen;
         public List<int> _vatNodeRemovalOrder;
         public int _vatNumNodesRemoved;
+        public List<List<int>> _overlaps;
 
         private StringBuilder meta;
-        public HVATClust(AbstractDataset data, int k, IPointGraphGenerator graphGen, bool weighted = true, double alpha = 1.0f, double beta = 0.0f, bool reassignNodes = true, bool hillClimb = true)
-            :this(k, weighted, graphGen, alpha, beta, reassignNodes, hillClimb)
+        public HyperVATClust(List<List<int>> overlaps,AbstractDataset data, int k, IPointGraphGenerator graphGen, bool weighted = true, double alpha = 1.0f, double beta = 0.0f, bool reassignNodes = true, bool hillClimb = true)
+            : this(overlaps, k, weighted, graphGen, alpha, beta, reassignNodes, hillClimb)
         {
             _data = data;
         }
 
-        public HVATClust(LightWeightGraph data, int k, bool weighted, double alpha = 1.0f, double beta = 0.0f, bool reassignNodes = true, bool hillClimb = true)
-            : this(k, weighted, null, alpha, beta, reassignNodes, hillClimb)
+        public HyperVATClust(List<List<int>> overlaps,LightWeightGraph data, int k, bool weighted, double alpha = 1.0f, double beta = 0.0f, bool reassignNodes = true, bool hillClimb = true)
+            : this(overlaps, k, weighted, null, alpha, beta, reassignNodes, hillClimb)
         {
             _data = data;
         }
 
-        private HVATClust(int k, bool weighted, IPointGraphGenerator graphGen = null, double alpha = 1.0f, double beta = 0.0f, bool reassignNodes = true, bool hillClimb = true)
+        private HyperVATClust(List<List<int>> overlaps,int k, bool weighted, IPointGraphGenerator graphGen = null, double alpha = 1.0f, double beta = 0.0f, bool reassignNodes = true, bool hillClimb = true)
         {
             _minK = k;
             _weighted = weighted;
@@ -47,6 +48,7 @@ namespace NetMining.ClusteringAlgo
             _beta = beta;
             _reassignNodes = reassignNodes;
             _hillClimb = hillClimb;
+            _overlaps = overlaps;
 
             meta = new StringBuilder();
             meta.AppendLine("HVatClust");
@@ -63,26 +65,27 @@ namespace NetMining.ClusteringAlgo
             if (_data.Type == AbstractDataset.DataType.DistanceMatrix)
                 mat = (DistanceMatrix)_data;
             else if (_data.Type == AbstractDataset.DataType.PointSet)
-                mat = ((PointSet) _data).GetDistanceMatrix();
+                mat = ((PointSet)_data).GetDistanceMatrix();
 
             //Setup our partition with a single cluster, with all points
             List<Cluster> clusterList = new List<Cluster> { new Cluster(0, Enumerable.Range(0, _data.Count).ToList()) };
             Partition partition = new Partition(clusterList, _data);
-            
+
             //Dictionary to hold VAT 
-            var vatMap = new Dictionary<int, VAT>();
+            var vatMap = new Dictionary<int, HyperVATBC>();
 
             //Dictionary to hold subset array
             var subsetMap = new Dictionary<int, int[]>();
-            
+            int numtraversals = 0;
             while (clusterList.Count < _minK)
             {
+                Console.WriteLine("Traversals: " + (numtraversals++));
                 //Calculate the VAT for all values
                 foreach (var c in partition.Clusters.Where(c => !vatMap.ContainsKey(c.ClusterId)))
                 {
                     //We must calculate a graph for this subset of data
                     List<int> clusterSubset = c.Points.Select(p => p.Id).ToList();
-                    
+
                     //Now calculate Vat
                     LightWeightGraph lwg;
                     if (_data.Type == AbstractDataset.DataType.Graph)
@@ -105,7 +108,7 @@ namespace NetMining.ClusteringAlgo
 
                     subsetMap.Add(c.ClusterId, clusterSubset.ToArray());
                     lwg.IsWeighted = _weighted;
-                    VAT v = new VAT(lwg, _reassignNodes, _alpha, _beta);
+                    HyperVATBC v = new HyperVATBC(_overlaps, lwg, _reassignNodes, _alpha, _beta);
                     _vatNodeRemovalOrder = v.NodeRemovalOrder;
                     _vatNumNodesRemoved = v.NumNodesRemoved;
                     if (_hillClimb)
@@ -203,7 +206,7 @@ namespace NetMining.ClusteringAlgo
                     lwg.IsWeighted = _weighted;
                     VAT v = new VAT(lwg, _reassignNodes, _alpha, _beta, nodeRemovalOrder, numNodesRemoved);
                     //if (_hillClimb)
-                        v.HillClimb();
+                    v.HillClimb();
                     ////VATClust v = new VATClust(subMatrix.Mat, _weighted, _useKnn, _kNNOffset, _alpha, _beta);
                     vatMap.Add(c.ClusterId, v);
                 }
@@ -254,7 +257,7 @@ namespace NetMining.ClusteringAlgo
             else if (_data.Type == AbstractDataset.DataType.PointSet)
                 mat = ((PointSet)_data).GetDistanceMatrix();
 
-           //get the actual partition (if graph not necessarily connected)
+            //get the actual partition (if graph not necessarily connected)
             Partition partition = Partition.GetPartition((LightWeightGraph)_data);
 
             //Dictionary to hold VAT 
@@ -319,7 +322,7 @@ namespace NetMining.ClusteringAlgo
                     }
                 }
                 meta.AppendLine();
-                
+
                 //now merge the partition into the cluster
                 var minVAT = vatMap[minVatCluster];
                 var subPartition = minVAT.GetPartition();
@@ -340,7 +343,7 @@ namespace NetMining.ClusteringAlgo
             // The idea is now that we have partitions, combine them so that partition.Clusters.Count == minK
             if (partition.Clusters.Count > _minK)
             {
-               combineClusters(partition, _minK);
+                combineClusters(partition, _minK);
             }
             return partition;
         }
@@ -422,7 +425,7 @@ namespace NetMining.ClusteringAlgo
             {
                 int firstCluster = merges[numMerges * 2];
                 int secondCluster = merges[(numMerges * 2) + 1];
-                
+
                 // adds the points of the second cluster to the first cluster
                 for (int i = 0; i < partition.Clusters[secondCluster].Points.Count; i++)
                 {
@@ -523,7 +526,7 @@ namespace NetMining.ClusteringAlgo
                 {
                     continue;
                 }
-                
+
 
 
                 // now we want to merge cluster largestJ into cluster largestI, 

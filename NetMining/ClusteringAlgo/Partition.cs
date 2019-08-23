@@ -14,6 +14,7 @@ namespace NetMining.ClusteringAlgo
     {
         public List<Cluster> Clusters;
         public String MetaData = "";
+        public List<int> removedNodes;
 
         //Data associated with partition
         public AbstractDataset Data;
@@ -125,6 +126,7 @@ namespace NetMining.ClusteringAlgo
 
         /// <summary>
         /// This will save the partitioning into the .cluster file format
+        /// This saves nodes that have not been assigned as NA
         /// </summary>
         /// <param name="saveLocation">The path to the file</param>
         /// <param name="dataFile">The path to the dataFile used</param>
@@ -150,6 +152,67 @@ namespace NetMining.ClusteringAlgo
                     foreach (ClusteredItem p in c.Points)
                     {
                         assignments[p.Id] = p.Id + ", " + ((LightWeightGraph)Data).Nodes[p.Id].sharedName + ", " + c.ClusterId;
+                    }
+
+                }
+                // we need to put in the nodes that have not been assigned
+                for (int i = 0; i < assignments.Length; i++)
+                {
+                    if (assignments[i] == null)
+                    {
+                        assignments[i] = i + ", " + ((LightWeightGraph)Data).Nodes[i].sharedName + ", NA";
+                    }
+                }
+
+                for (int i = 0; i < assignments.Count(); i++)
+                {
+
+                    sw.WriteLine(assignments[i]);
+
+                    //foreach (ClusteredItem p in c.Points)
+                    //    sw.Write("{0} ", p.Id);
+                    //sw.WriteLine();
+                    //sw.WriteLine("Meta {0}", MetaData);
+                }
+
+            }
+        }
+
+        /// <summary>
+        /// This will save the partitioning into the .cluster file format
+        /// </summary>
+        /// <param name="saveLocation">The path to the file</param>
+        /// <param name="dataFile">The path to the dataFile used</param>
+        /// <param name="metaData">This is additional information to append to the end
+        /// of the file</param>
+        public void SavePartitionIdentifySmallClusters(String saveLocation, String dataFile, int minSize)
+        {
+            //Assumes .Cluster endinge
+            using (StreamWriter sw = new StreamWriter(saveLocation))
+            {
+                //if (Data.Type == AbstractDataset.DataType.PointSet)
+                //    sw.WriteLine("Points {0}", dataFile);
+                //else if (Data.Type == AbstractDataset.DataType.DistanceMatrix)
+                //    sw.WriteLine("DistanceMatrix {0}", dataFile);
+                //else if (Data.Type == AbstractDataset.DataType.Graph)
+                //    sw.WriteLine("Graph {0}", dataFile);
+
+                //sw.WriteLine("Clusters {0}", Clusters.Count);
+
+                String[] assignments = new String[((LightWeightGraph)Data).Nodes.Count()];
+                foreach (Cluster c in Clusters)
+                {
+                    foreach (ClusteredItem p in c.Points)
+                    {
+                        if (c.Points.Count() > minSize)
+                        {
+                            assignments[p.Id] = p.Id + ", " + ((LightWeightGraph)Data).Nodes[p.Id].sharedName + ", " + c.ClusterId;
+                        }
+                        else
+                        {
+                            assignments[p.Id] = p.Id + ", " + ((LightWeightGraph)Data).Nodes[p.Id].sharedName + ", Noise";
+                        }
+                        
                     }
 
                 }
@@ -242,6 +305,22 @@ namespace NetMining.ClusteringAlgo
                     }
                     Clusters.Add(C);
                 }
+
+                //Read in the unassigned
+                removedNodes = new List<int>();
+                while (!sr.EndOfStream)
+                {
+                    line = sr.ReadLine();
+                    if (line.StartsWith("Removed Count"))
+                    {
+                        line = sr.ReadLine();
+                        String[] split = line.Split(',');
+                        for (int i = 0; i < split.Length; i++)
+                        {
+                            removedNodes.Add(int.Parse(split[i]));
+                        }
+                    }
+                 }
             }
         }
 

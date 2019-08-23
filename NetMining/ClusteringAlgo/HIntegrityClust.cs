@@ -79,6 +79,8 @@ namespace NetMining.ClusteringAlgo
                 //Calculate the VAT for all values
                 foreach (var c in partition.Clusters.Where(c => !vatMap.ContainsKey(c.ClusterId)))
                 {
+                    //Console.WriteLine("Calculating measure for partition " + c);
+                    
                     //We must calculate a graph for this subset of data
                     List<int> clusterSubset = c.Points.Select(p => p.Id).ToList();
 

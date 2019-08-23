@@ -108,7 +108,10 @@ namespace NetMining.Graphs
             }
 
             for (int i = 0; i < NumNodes; i++)
+            {
                 Nodes[i] = new LightWeightNode(i, oldLabel[i], lwg.IsWeighted, edgesList[i], (IsWeighted) ? edgeWeightList[i] : null);
+                //Nodes[i].sharedName = lwg.Nodes[oldLabel[i]].sharedName;
+            }
         }
         #endregion
 
@@ -467,7 +470,7 @@ namespace NetMining.Graphs
                 {
                     sw.WriteLine("\tnode [");
                     sw.WriteLine("\t\tid " + i);
-
+                    sw.WriteLine("\t\tsharedname \"" + Nodes[i].sharedName + "\"");
                     if (nodeDescriptors != null)
                     {
                         foreach (var kv in nodeDescriptors)
@@ -687,7 +690,7 @@ namespace NetMining.Graphs
                 
                 for (int i = 0; i < split.Length; i++)
                 {
-                    switch (split[i])
+                    switch (split[i].Trim())
                     {
                         case "directed":
                             isDirected = int.Parse(split[i + 1]) == 1;
@@ -697,21 +700,23 @@ namespace NetMining.Graphs
                             break;
                         case "node":
                             int j = i;
-                            while (split[j] != "]")
+                            while (split[j].Trim() != "]")
                             {
                                 int currentId;
-                                if (split[j] == "id") // change to id
+                                if (split[j].Trim() == "id") // change to id
                                 {
                                     String nodeId = split[j + 1];
                                     nodeIdLookup[nodeId] = numNodes++;
+                               //     split[j + 1] = split[j + 1].Substring(1, split[j + 1].Length-1);  // this will go
                                     currentId = (int)double.Parse(split[j + 1]); // i added
                                 }
-                                if (split[j] == "sharedname")
+                                if (split[j].Trim() == "sharedname")
                                 {
                                     String sharedname = split[j + 1];
                                     sharedname = sharedname.Substring(1);
                                     sharedname = sharedname.Substring(0, sharedname.Length-1);
                                     labels.Add(sharedname);
+                                    //sharedName = sharedname;
                                 }
                                 // if (split[j] == "value")
                                 // {
@@ -733,26 +738,26 @@ namespace NetMining.Graphs
 
                 for (int i = 0; i < split.Length; i++)
                 {
-                    switch (split[i])
+                    switch (split[i].Trim())
                     {
                         case "edge":
                             int sourceId = 0, targetId = 0;
                             double edgeWeight = 1.0f;
                             int j = i;
 
-                            while (split[j] != "]")
+                            while (split[j].Trim() != "]")
                             {
-                                if (split[j] == "source")
+                                if (split[j].Trim() == "source")
                                 {
                                     sourceId = nodeIdLookup[split[j + 1]];
                                 }
-                                else if (split[j] == "target")
+                                else if (split[j].Trim() == "target")
                                 {
                                     targetId = nodeIdLookup[split[j + 1]];
                                 }
-                                else if (split[j] == "weight" || split[j] == "value")
+                                else if (split[j].Trim() == "weight" || split[j].Trim() == "value")
                                 {
-                                    edgeWeight = double.Parse(split[j + 1]);
+                                    edgeWeight = double.Parse(split[j + 1].Trim());
                                 }
                                 j++;
                             }
@@ -837,7 +842,7 @@ namespace NetMining.Graphs
                                     nodeIdLookup[nodeId] = numNodes++;
                                     //currentId = int.Parse(split[j + 1]); // i added
                                 }
-                                if (split[j].Substring(0, 9) == "key=\"name")
+                                if (split[j].Length > 9 && split[j].Substring(0, 9) == "key=\"name")
                                 {
                                     String sharedname = split[j].Substring(12, split[j].Length-7);
                                     //sharedname = sharedname.Substring(1);

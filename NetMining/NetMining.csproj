@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>NetMining</RootNamespace>
     <AssemblyName>NetMining</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -58,6 +59,7 @@
     <Compile Include="ClusteringAlgo\HToughnessClust.cs" />
     <Compile Include="ClusteringAlgo\HVatABCClust.cs" />
     <Compile Include="ClusteringAlgo\HVATClust.cs" />
+    <Compile Include="ClusteringAlgo\HyperVatClust.cs" />
     <Compile Include="ClusteringAlgo\IClusteringAlgorithm.cs" />
     <Compile Include="ClusteringAlgo\KMeans.cs" />
     <Compile Include="Data\AbstractDataset.cs" />
@@ -83,6 +85,9 @@
     <Compile Include="Graphs\Generator\KNNGraphGenerator.cs" />
     <Compile Include="Graphs\Generator\StochasticMSTGraphGenerator.cs" />
     <Compile Include="Graphs\Generator\RandomGraphGenerator.cs" />
+    <Compile Include="Graphs\HyperVAT.cs" />
+    <Compile Include="Graphs\HyperVATBC.cs" />
+    <Compile Include="Graphs\HyperVATDeg.cs" />
     <Compile Include="Graphs\Integrity.cs" />
     <Compile Include="Graphs\LightWeightGraph.cs" />
     <Compile Include="Graphs\PriorityQueue.cs" />

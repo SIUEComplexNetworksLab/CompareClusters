@@ -6,7 +6,7 @@ using NetMining.ClusteringAlgo;
 using NetMining.ExtensionMethods;
 namespace NetMining.Graphs
 {
-    public class Toughness : IClusteringAlgorithm
+    public class HyperVAT : IClusteringAlgorithm
     {
         private readonly bool[] _removedNodes;
         private LightWeightGraph g;
@@ -34,12 +34,13 @@ namespace NetMining.Graphs
 
         private readonly bool _reassignNodes;
         //Vat computes given a graph
-        public Toughness(LightWeightGraph lwg, bool reassignNodes = true, double alpha = 1.0f, double beta = 0.0f)
+        public HyperVAT(List<List<int>> overlaps, LightWeightGraph lwg, bool reassignNodes = true, double alpha = 1.0f, double beta = 0.0f)
         {
 
             //set our alpha and beta variables
             Alpha = alpha; Beta = beta;
 
+            //int graphSize = lwg.NumNodes;
             //first we set our variables up
             _removedNodes = new bool[lwg.NumNodes];
             _nodeRemovalOrder = new List<int>();
@@ -55,40 +56,142 @@ namespace NetMining.Graphs
 
             bool threaded = Settings.Threading.ThreadHVAT;
             //This is where our estimate for Vat is calculated
-            for (int n = 0; n < g.NumNodes - 1; n++)  // was g.NumNodes / 2
+            // we start by removing the overlaps one at a time
+            double[] betweeness = new double[overlaps.Count];
+            for (int n = 0; n < overlaps.Count; n++) 
             {
                 //get the graph
+                _removedNodes = new bool[lwg.NumNodes];
+                for (int w = 0; w < overlaps[n].Count; w++)
+                {
+                    int removed = overlaps[n][w];
+                    _removedNodes[removed] = true;
+                }
                 LightWeightGraph gItter = new LightWeightGraph(g, _removedNodes);
                 //sw.Restart();
                 //get the betweeness
-                double[] betweeness = (threaded) ? BetweenessCentrality.ParallelBrandesBcNodes(gItter) :
-                    BetweenessCentrality.BrandesBcNodes(gItter);
+                
+                //double[] betweeness = (threaded) ? BetweenessCentrality.ParallelBrandesBcNodes(gItter) :
+                //    BetweenessCentrality.BrandesBcNodes(gItter);
                 //sw.Stop();
                 //Console.WriteLine("{0} {1}ms", n+1, sw.ElapsedMilliseconds);
                 //get the index of the maximum
-                int indexMaxBetweeness = betweeness.IndexOfMax();
-                int labelOfMax = gItter.Nodes[indexMaxBetweeness].Label;
+                //int indexMaxBetweeness = betweeness.IndexOfMax();
+                //int labelOfMax = gItter.Nodes[indexMaxBetweeness].Label;
 
                 //now we should add it to our list 
-                _nodeRemovalOrder.Add(labelOfMax);
-                _removedNodes[labelOfMax] = true;
+                //_nodeRemovalOrder.Add(labelOfMax);
+                //_removedNodes[labelOfMax] = true;
                 //calculate vat and update the record
-                double vat = CalculateToughness(_removedNodes);
+                double vat = CalculateVAT(_removedNodes);
+                betweeness[n] = vat;
                 if (vat < _minVat)
                 {
                     _minVat = vat;
-                    _numNodesRemoved = n + 1;
+                    _nodeRemovalOrder = overlaps[n];
+                    _numNodesRemoved = overlaps[n].Count;
+                }
+            }
+           
+            // This is the 2D node removal-------------------------------------
+            for (int i = 0; i < overlaps.Count; i++)
+            {
+                for (int j = i + 1; j < overlaps.Count; j++)
+                {
+                    _removedNodes = new bool[lwg.NumNodes];
+                    List<int> remNodeCombined = overlaps[i].Union(overlaps[j]).ToList();
+                    remNodeCombined.Sort();
+
+                    for (int w = 0; w < remNodeCombined.Count; w++)
+                    {
+                        int removed = remNodeCombined[w];
+                        _removedNodes[removed] = true;
+                        LightWeightGraph gItter = new LightWeightGraph(g, _removedNodes);
+                        double vat = CalculateVAT(_removedNodes);
+                        if (vat < _minVat)
+                        {
+                            _minVat = vat;
+                            _nodeRemovalOrder = remNodeCombined;
+                            _numNodesRemoved = remNodeCombined.Count;
+                        }
+
+                    }
                 }
             }
 
+            //-------------------------------
+            //This is the 3d node removal ----------------------------
+            for (int i = 0; i < overlaps.Count; i++)
+            {
+                for (int j = i + 1; j < overlaps.Count; j++)
+                {
+                    for (int k = 0; k < overlaps.Count; k++)
+                    {
+                        _removedNodes = new bool[lwg.NumNodes];
+                        List<int> remNodeCombined = overlaps[i].Union(overlaps[j]).Union(overlaps[k]).ToList();
+                        remNodeCombined.Sort();
+
+                        for (int w = 0; w < remNodeCombined.Count; w++)
+                        {
+                            int removed = remNodeCombined[w];
+                            _removedNodes[removed] = true;
+                            LightWeightGraph gItter = new LightWeightGraph(g, _removedNodes);
+                            double vat = CalculateVAT(_removedNodes);
+                            if (vat < _minVat)
+                            {
+                                _minVat = vat;
+                                _nodeRemovalOrder = remNodeCombined;
+                                _numNodesRemoved = remNodeCombined.Count;
+                            }
+
+                        }
+                    }
+                }
+            }
+             /* //4d
+            for (int i = 0; i < overlaps.Count; i++)
+            {
+                for (int j = i + 1; j < overlaps.Count; j++)
+                {
+                    for (int k = 0; k < overlaps.Count; k++)
+                    {
+                        for (int h = 0; h < overlaps.Count; h++)
+                        {
+
+                        _removedNodes = new bool[lwg.NumNodes];
+                        List<int> remNodeCombined = overlaps[i].Union(overlaps[j]).Union(overlaps[k]).Union(overlaps[h]).ToList();
+                        remNodeCombined.Sort();
+
+                            for (int w = 0; w < remNodeCombined.Count; w++)
+                            {
+                                int removed = remNodeCombined[w];
+                                _removedNodes[removed] = true;
+                                LightWeightGraph gItter = new LightWeightGraph(g, _removedNodes);
+                                double vat = CalculateVAT(_removedNodes);
+                                if (vat < _minVat)
+                                {
+                                    _minVat = vat;
+                                    _nodeRemovalOrder = remNodeCombined;
+                                    _numNodesRemoved = remNodeCombined.Count;
+                                }
+
+                            }
+                        }
+                    }
+                }
+            }
+            */
             //Now we need to set up S to reflect the actual minimum
+            int indexMinBetweeness = betweeness.IndexOfMin();
             for (int i = 0; i < _removedNodes.Length; i++)
                 _removedNodes[i] = false;
+
+            //_nodeRemovalOrder.Add(3);
             for (int i = 0; i < _numNodesRemoved; i++)
                 _removedNodes[_nodeRemovalOrder[i]] = true;
         }
 
-        public Toughness(LightWeightGraph lwg, bool reassignNodes = true, double alpha = 1.0f, double beta = 0.0f, List<int> nodeRemovalOrder = null, int numNodesRemoved = 0)
+        public HyperVAT(LightWeightGraph lwg, bool reassignNodes = true, double alpha = 1.0f, double beta = 0.0f, List<int> nodeRemovalOrder = null, int numNodesRemoved = 0)
         {
 
             //set our alpha and beta variables
@@ -108,28 +211,28 @@ namespace NetMining.Graphs
             if (lwg.NumNodes <= 2)
                 return;
 
-            bool threaded = Settings.Threading.ThreadHVAT;
+            //bool threaded = Settings.Threading.ThreadHVAT;
             //This is where our estimate for Vat is calculated
-            for (int n = 0; n < g.NumNodes; n++)  // This was evaluating g.Numnodes/2
+            for (int n = 0; n < g.NumNodes / 2; n++)  // this was 32, I think a typo?
             {
                 //get the graph
                 LightWeightGraph gItter = new LightWeightGraph(g, _removedNodes);
                 //sw.Restart();
                 //get the betweeness
-                double[] betweeness = (threaded) ? BetweenessCentrality.ParallelBrandesBcNodes(gItter) :
-                    BetweenessCentrality.BrandesBcNodes(gItter);
+                //double[] betweeness = (threaded) ? BetweenessCentrality.ParallelBrandesBcNodes(gItter) :
+                //    BetweenessCentrality.BrandesBcNodes(gItter);
                 //sw.Stop();
                 //Console.WriteLine("{0} {1}ms", n+1, sw.ElapsedMilliseconds);
                 //get the index of the maximum
-                int indexMaxBetweeness = betweeness.IndexOfMax();
-                int labelOfMax = gItter.Nodes[indexMaxBetweeness].Label;
+                //int indexMaxBetweeness = betweeness.IndexOfMax();
+                //int labelOfMax = gItter.Nodes[indexMaxBetweeness].Label;
 
                 //now we should add it to our list 
-                //labelOfMax = _nodeRemovalOrder[n];
-                _nodeRemovalOrder.Add(labelOfMax);
+                int labelOfMax = _nodeRemovalOrder[n];
+                //_nodeRemovalOrder.Add(labelOfMax);
                 _removedNodes[labelOfMax] = true;
                 //calculate vat and update the record
-                double vat = CalculateToughness(_removedNodes);
+                double vat = CalculateVAT(_removedNodes);
                 if (vat < _minVat)
                 {
                     _minVat = vat;
@@ -144,7 +247,8 @@ namespace NetMining.Graphs
                 _removedNodes[_nodeRemovalOrder[i]] = true;
         }
 
-        
+
+
 
         public LightWeightGraph GetAttackedGraph()
         {
@@ -264,14 +368,14 @@ namespace NetMining.Graphs
                 clusterList.Add(c);
             }
 
-            String meta = "Toughness: \nRemoved Count:" + NumNodesRemoved + "\n"
+            String meta = "VAT: \nRemoved Count:" + NumNodesRemoved + "\n"
                           + String.Join(",", _nodeRemovalOrder.GetRange(0, NumNodesRemoved));
 
             return new Partition(clusterList, g, meta);
         }
 
         //Use GetComponents
-        private double CalculateToughness(bool[] s)
+        private double CalculateVAT(bool[] s)
         {
             //We must get the size of S
             bool[] sClone = (bool[])s.Clone();
@@ -286,10 +390,10 @@ namespace NetMining.Graphs
             if (components.Count == 1 || components.Count == 0)
                 return double.MaxValue;
 
-            //int cMax = components.Select(c => c.Count).Max();
+            int cMax = components.Select(c => c.Count).Max();
 
-            //calculate Toughness = |S|/#connectedComponents
-            return ((double) sizeS / components.Count);
+            //calculate VAT
+            return (Alpha * sizeS + Beta) / (g.NumNodes - sizeS - cMax + 1.0f);
         }
 
         /// <summary>
@@ -309,7 +413,7 @@ namespace NetMining.Graphs
             {
                 //flip a bit and calculate
                 s[i] ^= true;
-                double vat = CalculateToughness(s);
+                double vat = CalculateVAT(s);
                 if (vat < bestVAT)
                 {
                     bestVAT = vat;
@@ -353,7 +457,7 @@ namespace NetMining.Graphs
                     //flip a bit and calculate
 
                     s[i] ^= true;
-                    double vat = CalculateToughness(s);
+                    double vat = CalculateVAT(s);
                     if (vat < bestVAT)
                     {
                         bestVAT = vat;
@@ -407,7 +511,7 @@ namespace NetMining.Graphs
                     //flip a bit and calculate
 
                     s[i] ^= true;
-                    double vat = CalculateToughness(s);
+                    double vat = CalculateVAT(s);
                     if (vat < bestVAT)
                     {
                         bestVAT = vat;
@@ -442,7 +546,7 @@ namespace NetMining.Graphs
                         //flip a bit and calculate
                         s[i] ^= true;
                         s[j] ^= true;
-                        double vat = CalculateToughness(s);
+                        double vat = CalculateVAT(s);
                         if (vat < bestVAT)
                         {
                             bestVAT = vat;
@@ -478,4 +582,6 @@ namespace NetMining.Graphs
         }
 
     }
+
+
 }

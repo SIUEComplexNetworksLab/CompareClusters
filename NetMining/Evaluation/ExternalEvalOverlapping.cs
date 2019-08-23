@@ -1002,12 +1002,15 @@ namespace NetMining.Evaluation
         {
 
             int countTrue = 0;
+
+            // add this back if you have a useful label file
+         /*   
             //start by parsing label file
             DelimitedFile delimitedLabelFile = new DelimitedFile(labelFile);
             //int labelCol = delimitedLabelFile.Data[0].Length;
             //LabelList labels = new LabelList(delimitedLabelFile.GetColumn(labelCol - 1));
             LabelListOverlapping labelsO = new LabelListOverlapping(delimitedLabelFile);
-
+        */
             //get the Partion file
             Partition clusterFile = new Partition(clusterFileName);
             //get the name of the graph file from the partition file
@@ -1042,7 +1045,8 @@ namespace NetMining.Evaluation
 
 
             //int[] assignments = new int[labels.LabelIndices.Length];
-            List<int>[] assignmentsO = new List<int>[delimitedLabelFile.Data.Count];
+            //List<int>[] assignmentsO = new List<int>[delimitedLabelFile.Data.Count];
+            List<int>[] assignmentsO = new List<int>[2680];
             for (int i = 0; i < assignmentsO.Length; i++)
             {
                 assignmentsO[i] = new List<int>();
@@ -1204,10 +1208,10 @@ namespace NetMining.Evaluation
             {
                 for (int i = 0; i < assignmentsO.Length; i++)
                 {
-                    sw.Write(i + " ");
+                    //sw.Write(i + ", ");
                     for (int j = 0; j < assignmentsO[i].Count; j++)
                     {
-                        sw.Write(assignmentsO[i][j] + " ");
+                        sw.Write(assignmentsO[i][j] + ", ");
                     }
                     sw.WriteLine("");
                 }
